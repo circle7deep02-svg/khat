@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>خط — Khat IQ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#fff;--fg:#000;--mut:#0009;--card:#0000000f;--line:#00000026}
+:root.dark{--bg:#121212;--fg:#fff;--mut:#fff9;--card:#ffffff14;--line:#ffffff30}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;background:var(--bg);color:var(--fg);overflow:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input{font:inherit;color:inherit}
+.scr{position:fixed;inset:0;overflow:auto;background:var(--bg);padding:24px;z-index:2000;padding-top:calc(24px + env(safe-area-inset-top))}
+.hide{display:none!important}
+.btn{background:var(--fg);color:var(--bg);border:0;border-radius:28px;height:54px;width:100%;font-weight:700;font-size:18px;cursor:pointer}
+.btn:disabled{opacity:.5}
+.ghost{background:none;border:1px solid var(--line);color:var(--fg)}
+.inp{width:100%;border:1px solid var(--line);background:none;border-radius:16px;padding:14px;font-size:18px;direction:ltr;margin:16px 0 8px}
+.err{color:#d93025;min-height:20px;font-size:14px}
+.card{background:var(--card);border-radius:20px;padding:18px;margin-top:12px}
+.logo{display:block;margin:20px auto;height:140px;background:#fff;border-radius:24px;padding:10px}
+h1{font-size:26px;margin:20px 0 8px}
+#map{position:fixed;inset:0;z-index:1}
+.top{position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:10px}
+.box{background:var(--bg);border-radius:20px;box-shadow:0 3px 12px #0004;overflow:hidden}
+.box input{width:100%;border:0;background:none;padding:16px;font-size:16px;outline:0}
+.li{padding:12px 16px;border-top:1px solid var(--line);font-size:14px;cursor:pointer}
+.banner{background:#000;color:#fff;border-radius:20px;padding:16px;display:flex;gap:14px;align-items:center}
+.banner b{font-size:26px;display:block}
+.alert{background:#e64a19;color:#fff;border-radius:16px;padding:14px;font-weight:700}
+.fab{width:48px;height:48px;border-radius:50%;border:0;background:var(--bg);box-shadow:0 3px 10px #0005;font-size:20px;cursor:pointer}
+.side{position:fixed;right:12px;display:flex;flex-direction:column;gap:10px;z-index:1000}
+#rep{position:fixed;left:12px;z-index:1000;width:72px;height:72px;font-size:38px;background:var(--fg);color:var(--bg)}
+#spd{position:fixed;left:12px;z-index:1000;width:62px;height:62px;border-radius:50%;background:var(--bg);box-shadow:0 3px 10px #0005;text-align:center;font-weight:700;padding-top:11px;font-size:20px;line-height:1}
+#spd small{display:block;font-size:10px;font-weight:400}
+.bar{position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:1100;background:var(--bg);border-radius:24px;box-shadow:0 4px 18px #0006;padding:14px}
+.row{display:flex;align-items:center;gap:8px}
+.chip{border:1px solid var(--line);border-radius:20px;padding:8px 12px;background:none;cursor:pointer;font-size:14px}
+.chip.on{background:var(--fg);color:var(--bg)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:3000;background:var(--bg);border-radius:24px 24px 0 0;padding:20px;box-shadow:0 -4px 20px #0006;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.grid button{background:var(--card);border:0;border-radius:18px;padding:14px 4px;font-size:12.5px;font-weight:600;cursor:pointer}
+.grid span{display:block;font-size:30px}
+.pin{width:38px!important;height:38px!important;border-radius:50%;background:var(--bg);border:2px solid var(--fg);text-align:center;line-height:34px;font-size:20px}
+.me{width:40px!important;height:40px!important;border-radius:50%;background:var(--bg);border:3px solid var(--fg);text-align:center;line-height:34px;font-size:20px}
+#toast{position:fixed;top:30%;left:50%;transform:translateX(-50%);background:#000d;color:#fff;border-radius:14px;padding:12px 18px;z-index:5000;display:none;max-width:85%;text-align:center}
+.bar2{height:8px;background:var(--card);border-radius:8px;overflow:hidden;margin:10px 0 6px}.bar2 i{display:block;height:100%;background:var(--fg)}
+.plan{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:12px;font-size:20px;font-weight:700;cursor:pointer}
+.plan.best{border:2px solid var(--fg)}.plan small{color:#188038;display:block;font-size:14px}
+.sw{display:flex;justify-content:space-between;align-items:center;padding:12px 0}
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- Splash -->
+<div class="scr" id="splash" style="display:flex;align-items:center;justify-content:center;background:#fff;color:#000">
+  <img src="assets/logo/khat_logo_light.png" width="200" alt="خط" onerror="this.outerHTML='<b style=font-size:64px>خط</b>'">
+</div>
+
+<!-- Login -->
+<div class="scr hide" id="login">
+  <button class="chip" onclick="toggleLang()" id="langL"></button>
+  <img class="logo" src="assets/logo/khat_logo_light.png" alt="خط" onerror="this.outerHTML='<b class=logo style=font-size:48px;color:#000;text-align:center;line-height:140px>خط</b>'">
+  <h1 data-t="login"></h1>
+  <p data-t="loginSub"></p>
+  <input class="inp" id="phone" type="tel" inputmode="tel" placeholder="07701234567">
+  <div class="err" id="loginErr"></div>
+  <button class="btn" id="sendBtn" onclick="sendOtp()" data-t="sendCode"></button>
+</div>
+
+<!-- OTP -->
+<div class="scr hide" id="otp">
+  <button class="chip" onclick="show('login')">←</button>
+  <h1 data-t="enterCode"></h1>
+  <p><span data-t="sentTo"></span> <bdi id="otpPhone" dir="ltr"></bdi></p>
+  <input class="inp" id="code" maxlength="6" inputmode="numeric" style="text-align:center;font-size:32px;letter-spacing:12px;font-weight:700">
+  <div class="err" id="otpErr"></div>
+  <button class="btn" id="verBtn" onclick="verifyOtp()" data-t="verify"></button>
+  <p style="text-align:center;margin-top:14px" id="resend"></p>
+</div>
+
+<!-- Paywall -->
+<div class="scr hide" id="paywall">
+  <div class="row"><button class="chip hide" id="pwBack" onclick="show('map')">←</button><h1 data-t="plans" style="margin:0"></h1></div>
+  <div class="card hide" id="expiredMsg" style="background:#e64a1a20;font-weight:600" data-t="expired"></div>
+  <div id="plansBox"></div>
+  <p style="text-align:center;color:var(--mut);margin:16px 0" data-t="payNote"></p>
+  <button class="btn ghost" id="pwOut" onclick="logout()" data-t="logout"></button>
+</div>
+
+<!-- Profile -->
+<div class="scr hide" id="profile"></div>
+
+<!-- Map -->
+<div id="map" class="hide"></div>
+<div class="top hide" id="topbar">
+  <div id="searchWrap" class="box"><input id="q" autocomplete="off" oninput="onSearch(this.value)" onfocus="showRecent()"><div id="results"></div></div>
+  <div class="banner hide" id="banner"><span id="bIcon" style="font-size:44px"></span><div><b id="bDist"></b><span id="bText" style="opacity:.75"></span></div></div>
+  <div class="alert hide" id="alertBox"></div>
+</div>
+<div class="side hide" id="side">
+  <button class="fab" onclick="locate()">⌖</button>
+  <button class="fab" onclick="toggleDark()" id="darkBtn">☾</button>
+  <button class="fab" onclick="toggleLang()">文</button>
+  <button class="fab" onclick="openProfile()">👤</button>
+</div>
+<button class="fab hide" id="rep" onclick="openReport()">＋</button>
+<div id="spd" class="hide"><span id="spdN">0</span><small>km/h</small></div>
+<div class="bar hide" id="routeCard"></div>
+<div class="bar hide" id="navBar"></div>
+<div id="sheetHost"></div>
+
+<script>
+/* ===== CONFIG: fill these in (same values as the Flutter .env) ===== */
+const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+const OSRM = 'https://router.project-osrm.org';
+const NOMINATIM_UA = ''; // browsers set their own User-Agent
+
+/* ===== i18n ===== */
+const D = {
+search:['ابحث في العراق...','Search in Iraq...'],start:['ابدأ','Start'],report:['أبلغ عن','Report'],
+thanks:['شكراً! تم إرسال البلاغ','Thanks! Report sent'],still:['ما زال موجوداً','Still there'],gone:['لم يعد موجوداً','Not there'],
+locOff:['الموقع مغلق — فعّل إذن الموقع من إعدادات المتصفح','Location is off — enable it in browser settings'],
+noRoute:['ما لقيت مسار لهذي الوجهة','No route found'],rerouting:['جاري إعادة حساب المسار','Recalculating route'],
+wait:['انتظر دقيقة قبل إرسال بلاغ جديد','Wait a minute before sending another report'],voted:['شكراً على تصويتك','Thanks for your vote'],
+already:['صوّتت على هذا البلاغ من قبل','You already voted on this report'],failed:['صار خطأ، حاول مرة ثانية','Something went wrong, try again'],
+waiting:['جاري تحديد موقعك...','Getting your location...'],
+traffic:['ازدحام','Traffic jam'],checkpoint:['سيطرة','Checkpoint'],accident:['حادث','Accident'],closed:['طريق مغلق','Road closed'],
+pothole:['حفرة','Pothole'],police:['شرطة','Police'],camera:['كاميرا سرعة','Speed camera'],hazard:['خطر على الطريق','Road hazard'],stopped:['مركبة متوقفة','Stopped vehicle'],
+login:['تسجيل الدخول','Log in'],loginSub:['اكتب رقم هاتفك وراح نرسل لك كود التحقق على واتساب. أول شهرين مجاناً!','Enter your phone number and we will send a verification code on WhatsApp. First 2 months free!'],
+sendCode:['إرسال الكود عبر واتساب','Send code on WhatsApp'],badPhone:['اكتب رقم عراقي صحيح مثل 07701234567','Enter a valid Iraqi number like 07701234567'],
+enterCode:['أدخل كود التحقق','Enter the verification code'],sentTo:['أرسلنا كود من 6 أرقام على واتساب إلى','We sent a 6-digit code on WhatsApp to'],
+verify:['تأكيد','Verify'],badCode:['الكود غير صحيح أو منتهي','Wrong or expired code'],resendIn:['إعادة الإرسال بعد','Resend in'],resend:['إعادة إرسال الكود','Resend code'],
+plans:['باقات الاشتراك','Subscription plans'],expired:['انتهى اشتراكك. اختر باقة حتى ترجع تستخدم الخريطة.','Your subscription has ended. Pick a plan to keep using the map.'],
+payNote:['الدفع عبر صفحة دفع آمنة، وبعد نجاح الدفع يتفعّل اشتراكك تلقائياً.','Payment happens on a secure page. Your subscription activates automatically after a successful payment.'],
+logout:['تسجيل الخروج','Log out'],month:['شهر','1 month'],quarter:['3 أشهر','3 months'],year:['سنة','1 year'],
+account:['حسابي','My account'],editName:['اكتب اسمك','Enter your name'],user:['مستخدم خط','Khat user'],
+expiredS:['منتهي','Expired'],trial:['اشتراك تجريبي - فعال','Free trial - active'],sub:['مشترك - باقة','Subscriber - '],
+renew:['تجديد أو ترقية الاشتراك','Renew or upgrade'],choose:['اختر باقة','Choose a plan'],tolls:['تجنب الطرق ذات الرسوم','Avoid toll roads'],
+autoNight:['الوضع الليلي التلقائي (6م–6ص)','Automatic night mode (6PM–6AM)'],ptsInfo:['+10 نقاط لكل بلاغ، +2 لكل تصويت','+10 points per report, +2 per vote'],
+arrived:['وصلت إلى وجهتك','You have arrived'],depart:['ابدأ الحركة','Start driving'],roundabout:['ادخل الدوار','Enter the roundabout'],
+left:['انعطف يساراً','Turn left'],right:['انعطف يميناً','Turn right'],'slight left':['انعطف قليلاً يساراً','Bear left'],'slight right':['انعطف قليلاً يميناً','Bear right'],
+'sharp left':['انعطف بحدة يساراً','Sharp left'],'sharp right':['انعطف بحدة يميناً','Sharp right'],uturn:['اعمل دوران للخلف','Make a U-turn'],straight:['استمر للأمام','Continue straight'],cont:['استمر للأمام','Continue']
+};
+const REPORTS = {traffic:'🚦',checkpoint:'🛡️',accident:'🚗',closed:'⛔',pothole:'⚠️',police:'👮',camera:'📷',hazard:'🚧',stopped:'🔧'};
+const LEVELS = [[0,'سائق جديد','New driver'],[50,'مستكشف','Explorer'],[150,'سائق نشيط','Active driver'],[400,'خبير الطريق','Road expert'],[1000,'قائد الطريق','Road leader'],[2500,'أسطورة خط','Khat legend']];
+let ar = true, manualDark = null, avoidTolls = false;
+const t = k => (D[k] || [k, k])[ar ? 0 : 1];
+const x = (a, e) => ar ? a : e;
+
+/* ===== helpers ===== */
+const $ = id => document.getElementById(id);
+const IQ = {s:29, w:38.7, n:37.4, e:48.6}, BAGHDAD = [33.3152, 44.3661];
+const inIraq = (la, lo) => la >= IQ.s && la <= IQ.n && lo >= IQ.w && lo <= IQ.e;
+function toast(m){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',3000)}
+function distM(a,b){const r=6371000,p=Math.PI/180,dl=(b[0]-a[0])*p,dn=(b[1]-a[1])*p,h=Math.sin(dl/2)**2+Math.cos(a[0]*p)*Math.cos(b[0]*p)*Math.sin(dn/2)**2;return 2*r*Math.asin(Math.min(1,Math.sqrt(h)))}
+function segDistM(p,a,b){const k=111320,cl=Math.cos(p[0]*Math.PI/180),ax=(a[1]-p[1])*k*cl,ay=(a[0]-p[0])*k,bx=(b[1]-p[1])*k*cl,by=(b[0]-p[0])*k,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;let u=l2?((-ax)*dx+(-ay)*dy)/l2:0;u=Math.max(0,Math.min(1,u));return Math.hypot(ax+u*dx,ay+u*dy)}
+const fmtDist=m=>m<1000?Math.round(m)+(ar?' م':' m'):(m/1000).toFixed(1)+(ar?' كم':' km');
+function fmtDur(s){const m=Math.round(s/60);if(m<60)return m+(ar?' د':' min');const h=Math.floor(m/60),mm=m%60;return ar?`${h} س ${mm} د`:`${h}h ${mm}m`}
+function normPhone(raw){let d=raw.replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).replace(/[\s\-()]/g,'');
+  if(d.startsWith('00'))d='+'+d.slice(2);else if(d.startsWith('+')){}else if(d.startsWith('964'))d='+'+d;else if(d.startsWith('0'))d='+964'+d.slice(1);else d='+964'+d;
+  return /^\+9647\d{9}$/.test(d)?d:null}
+const iqd=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+$)/g,',')+(ar?' د.ع':' IQD');
+
+/* ===== theme / lang ===== */
+function isDark(){if(manualDark!==null)return manualDark;const h=new Date().getHours();return h>=18||h<6}
+function applyTheme(){const d=isDark();document.documentElement.classList.toggle('dark',d);$('darkBtn').textContent=d?'☀':'☾';if(map)setTiles()}
+function toggleDark(){manualDark=!isDark();applyTheme()}
+function toggleLang(){ar=!ar;applyLang();if(!$('profile').classList.contains('hide'))openProfile();if(!$('paywall').classList.contains('hide'))loadPlans()}
+function applyLang(){document.documentElement.lang=ar?'ar':'en';document.documentElement.dir=ar?'rtl':'ltr';
+  document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
+  $('q').placeholder=t('search');$('langL').textContent=ar?'English':'العربية';
+  $('otpPhone').parentElement.style.direction=ar?'rtl':'ltr'}
+setInterval(applyTheme,60000);
+
+/* ===== screens ===== */
+const SCREENS=['splash','login','otp','paywall','profile'];
+function show(name){SCREENS.forEach(s=>$(s).classList.toggle('hide',s!==name));
+  const m=name==='map';['map','topbar','side','rep'].forEach(i=>$(i).classList.toggle('hide',!m));
+  if(m){initMap();setTimeout(()=>map.invalidateSize(),50);startGeo()}else if(name!=='profile'&&name!=='paywall'){stopGeo()}
+  if(name==='paywall')loadPlans();updateBars()}
+
+/* ===== supabase auth / profile ===== */
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let session=null, prof=null, otpPhoneNum='', otpTimer=null;
+async function sendOtp(){const p=normPhone($('phone').value);if(!p){$('loginErr').textContent=t('badPhone');return}
+  $('loginErr').textContent='';$('sendBtn').disabled=true;
+  const {error}=await sb.auth.signInWithOtp({phone:p});$('sendBtn').disabled=false;
+  if(error){$('loginErr').textContent=error.message;return}
+  otpPhoneNum=p;$('otpPhone').textContent=p;$('code').value='';$('otpErr').textContent='';startResend();show('otp');$('code').focus()}
+function startResend(){let s=60;clearInterval(otpTimer);const r=$('resend');
+  const draw=()=>{r.innerHTML=s>0?`${t('resendIn')} ${s}`:`<button class="chip" onclick="resendOtp()">${t('resend')}</button>`};draw();
+  otpTimer=setInterval(()=>{s--;draw();if(s<=0)clearInterval(otpTimer)},1000)}
+async function resendOtp(){const {error}=await sb.auth.signInWithOtp({phone:otpPhoneNum});if(error)$('otpErr').textContent=error.message;else startResend()}
+$('code').addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'');if(e.target.value.length===6)verifyOtp()});
+async function verifyOtp(){const c=$('code').value.trim();if(c.length!==6)return;$('verBtn').disabled=true;
+  const {error}=await sb.auth.verifyOtp({phone:otpPhoneNum,token:c,type:'sms'});$('verBtn').disabled=false;
+  if(error)$('otpErr').textContent=t('badCode')}
+async function logout(){await sb.auth.signOut()}
+async function loadProfile(){if(!session){prof=null;return}
+  const {data}=await sb.from('profiles').select('*').eq('id',session.user.id).maybeSingle();prof=data;route()}
+const active=()=>prof&&new Date(prof.subscription_end)>new Date();
+let current='';
+function route(){if(!session){if(current!=='login'&&current!=='otp'){current='login';show('login')}return}
+  if(!prof)return;
+  if(active()){if(current!=='map'&&current!=='profile'&&!(current==='paywall'&&prof._manual)){current='map';show('map')}}
+  else{current='paywall';show('paywall')}}
+sb.auth.onAuthStateChange((_e,s)=>{session=s;if(s){loadProfile();subscribeProfile()}else{prof=null;current='login';stopNav();show('login')}});
+setInterval(()=>{if(prof&&!active()&&current==='map'){route()}},60000);
+let profCh=null;
+function subscribeProfile(){if(profCh)sb.removeChannel(profCh);
+  profCh=sb.channel('p-'+session.user.id).on('postgres_changes',{event:'*',schema:'public',table:'profiles',filter:'id=eq.'+session.user.id},()=>loadProfile()).subscribe()}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&session)loadProfile()});
+
+/* ===== paywall ===== */
+async function loadPlans(){$('pwBack').classList.toggle('hide',current!=='paywall'||!prof||!prof._manual);
+  $('pwOut').classList.toggle('hide',!!(prof&&prof._manual));
+  $('expiredMsg').classList.toggle('hide',active());
+  const box=$('plansBox');box.innerHTML='…';
+  const {data,error}=await sb.from('plans').select('*').order('sort');if(error||!data){box.textContent=t('failed');return}
+  const m=data.find(r=>r.code==='month')||data[0],base=m.price_iqd/m.days;
+  box.innerHTML=data.map(r=>{const sv=1-(r.price_iqd/r.days)/base;
+    return `<div class="plan ${r.code==='year'?'best':''}" onclick="buy('${r.code}',this)"><div>${t(r.code)}${sv>.05?`<small>${x('وفّر','Save')} ${Math.round(sv*100)}%</small>`:''}</div><div>${iqd(r.price_iqd)}</div></div>`}).join('')}
+async function buy(code,el){el.style.opacity=.5;
+  const {data,error}=await sb.functions.invoke('create-checkout',{body:{plan_code:code}});el.style.opacity=1;
+  if(error||!data||!data.url){toast(t('failed'));return}
+  window.open(data.url,'_blank')}
+
+/* ===== profile ===== */
+function levelFor(p){let i=0;LEVELS.forEach((l,k)=>{if(p>=l[0])i=k});const nx=LEVELS[i+1]?LEVELS[i+1][0]:null;
+  return {i,ar:LEVELS[i][1],en:LEVELS[i][2],next:nx,prog:nx?Math.min(1,(p-LEVELS[i][0])/(nx-LEVELS[i][0])):1}}
+function openProfile(){if(!prof)return;const p=prof,act=active();
+  const left=Math.max(0,new Date(p.subscription_end)-Date.now()),d=Math.floor(left/864e5),h=Math.floor(left/36e5)%24;
+  const trial=!p.plan_code,st=!act?t('expiredS'):trial?t('trial'):t('sub')+' '+t(p.plan_code);
+  const cd=!act?x('انتهى اشتراكك','Your subscription has ended'):x(`متبقي ${d} يوم و ${h} ساعة على انتهاء ${trial?'اشتراكك المجاني':'اشتراكك'}`,`${d} days ${h} h left on your ${trial?'free trial':'subscription'}`);
+  const lv=levelFor(p.points||0),nm=p.name||t('user');
+  $('profile').innerHTML=`<div class="row"><button class="chip" onclick="closeProfile()">←</button><h1 style="margin:0">${t('account')}</h1></div>
+  <div style="text-align:center;margin-top:18px"><div style="width:88px;height:88px;border-radius:50%;background:var(--fg);color:var(--bg);font-size:38px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${esc([...nm][0].toUpperCase())}</div>
+  <div style="font-size:22px;font-weight:700;margin-top:10px">${esc(nm)} <button class="chip" onclick="editName()">✎</button></div>
+  <div dir="ltr" style="color:var(--mut)">+${esc(String(p.phone||'').replace(/^\+/,''))}</div></div>
+  <div class="card"><b style="font-size:18px">${st}</b><p style="margin:6px 0 14px">${cd}</p><button class="btn" style="height:48px" onclick="openPaywall()">${act?t('renew'):t('choose')}</button></div>
+  <div class="card"><b style="font-size:18px">🏆 ${x('المستوى','Level')} ${lv.i+1}: ${ar?lv.ar:lv.en}</b><div class="bar2"><i style="width:${lv.prog*100}%"></i></div>
+  <div>${lv.next?`${p.points||0} / ${lv.next} ${x('نقطة','points')}`:`${p.points||0} ${x('نقطة - وصلت لأعلى مستوى','points - top level reached')}`}</div><small style="color:var(--mut)">${t('ptsInfo')}</small></div>
+  <div class="sw"><span>${t('tolls')}</span><input type="checkbox" ${avoidTolls?'checked':''} onchange="avoidTolls=this.checked"></div>
+  <div class="sw"><span>${t('autoNight')}</span><input type="checkbox" ${manualDark===null?'checked':''} onchange="manualDark=this.checked?null:isDark();applyTheme()"></div>
+  <button class="btn ghost" style="margin-top:12px" onclick="logout()">${t('logout')}</button>`;
+  current='profile';show('profile')}
+function closeProfile(){current='map';show('map')}
+function openPaywall(){prof._manual=true;current='paywall';show('paywall')}
+async function editName(){const v=prompt(t('editName'),prof.name||'');if(!v||!v.trim())return;
+  await sb.from('profiles').update({name:v.trim().slice(0,30)}).eq('id',prof.id);await loadProfile();openProfile()}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ===== map ===== */
+let map=null,tiles=null,meMk=null,destMk=null,lineLayer=null,repLayer=null,reports=[],pos=null,watchId=null,firstFix=true,rot=0;
+function setTiles(){const d=isDark();if(tiles)map.removeLayer(tiles);
+  tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${d?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{subdomains:'abcd',maxZoom:18,attribution:'© OpenStreetMap © CARTO'}).addTo(map);tiles.bringToBack()}
+function initMap(){if(map)return;
+  map=L.map('map',{zoomControl:false,minZoom:6,maxZoom:18,maxBounds:[[IQ.s,IQ.w],[IQ.n,IQ.e]],maxBoundsViscosity:1}).setView(BAGHDAD,11);
+  lineLayer=L.layerGroup().addTo(map);repLayer=L.layerGroup().addTo(map);setTiles();
+  let lp=null;map.on('contextmenu',e=>plan([e.latlng.lat,e.latlng.lng]));
+  map.getContainer().addEventListener('touchstart',e=>{clearTimeout(lp);if(e.touches.length===1){const tt=e.touches[0];lp=setTimeout(()=>{const ll=map.mouseEventToLatLng(tt);plan([ll.lat,ll.lng])},700)}},{passive:true});
+  ['touchend','touchmove'].forEach(ev=>map.getContainer().addEventListener(ev,()=>clearTimeout(lp),{passive:true}));
+  loadReports();supabaseReports()}
+function startGeo(){if(watchId!==null||!navigator.geolocation)return;
+  watchId=navigator.geolocation.watchPosition(onGeo,()=>toast(t('locOff')),{enableHighAccuracy:true,maximumAge:2000})}
+function stopGeo(){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}}
+function onGeo(g){const c=g.coords;pos={ll:[c.latitude,c.longitude],speed:c.speed||0,heading:c.heading};
+  if(!meMk)meMk=L.marker(pos.ll,{icon:L.divIcon({className:'',html:'<div class="me">➤</div>',iconSize:[40,40],iconAnchor:[20,20]}),zIndexOffset:900}).addTo(map);
+  meMk.setLatLng(pos.ll);
+  if(firstFix){firstFix=false;if(inIraq(...pos.ll))map.setView(pos.ll,15)}
+  onPosition();if(nav.on)map.setView(pos.ll,17,{animate:true});$('spdN').textContent=Math.round(pos.speed*3.6)}
+function locate(){if(pos)map.setView(pos.ll,16)}
+
+/* ===== reports ===== */
+async function loadReports(){const {data}=await sb.from('reports').select('*');
+  reports=(data||[]).filter(r=>new Date(r.expires_at)>new Date()&&(r.denies||0)<3);drawReports()}
+function supabaseReports(){sb.channel('reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},loadReports).subscribe()}
+function drawReports(){repLayer.clearLayers();reports.forEach(r=>{
+  L.marker([r.lat,r.lng],{icon:L.divIcon({className:'',html:`<div class="pin">${REPORTS[r.type]||'📍'}</div>`,iconSize:[38,38],iconAnchor:[19,19]})})
+   .on('click',()=>reportDetails(r)).addTo(repLayer)})}
+function sheet(html){$('sheetHost').innerHTML=`<div style="position:fixed;inset:0;z-index:2900;background:#0006" onclick="closeSheet()"></div><div class="sheet">${html}</div>`}
+function closeSheet(){$('sheetHost').innerHTML=''}
+function openReport(){sheet(`<b style="font-size:20px">${t('report')}</b><div class="grid">${Object.keys(REPORTS).map(k=>`<button onclick="sendReport('${k}')"><span>${REPORTS[k]}</span>${t(k)}</button>`).join('')}</div>`)}
+async function sendReport(type){if(!pos){toast(t('waiting'));return}closeSheet();
+  const {error}=await sb.rpc('create_report',{p_type:type,p_lat:pos.ll[0],p_lng:pos.ll[1]});
+  toast(error?(/Rate limit/i.test(error.message)?t('wait'):t('failed')):t('thanks'));if(!error){loadReports();loadProfile()}}
+function reportDetails(r){sheet(`<div style="text-align:center"><div style="font-size:44px">${REPORTS[r.type]||'📍'}</div><b style="font-size:20px">${t(r.type)}</b></div>
+  <div class="row" style="margin-top:16px"><button class="btn ghost" style="height:48px" onclick="vote('${r.id}','confirm_report')">👍 ${t('still')}</button><button class="btn ghost" style="height:48px" onclick="vote('${r.id}','deny_report')">👎 ${t('gone')}</button></div>`)}
+async function vote(id,fn){closeSheet();const {error}=await sb.rpc(fn,{p_id:id});
+  toast(error?(/Already/i.test(error.message)?t('already'):t('failed')):t('voted'));if(!error){loadReports();loadProfile()}}
+
+/* ===== search ===== */
+let deb=null,recent=JSON.parse(localStorage.getItem('recent')||'[]');
+function showRecent(){if(!$('q').value&&recent.length)renderResults(recent,true)}
+function renderResults(items){$('results').innerHTML=items.map((r,i)=>`<div class="li" data-i="${i}">📍 ${esc(r.name)}</div>`).join('');
+  $('results').querySelectorAll('.li').forEach(e=>e.onclick=()=>pick(items[e.dataset.i]))}
+function onSearch(v){clearTimeout(deb);if(v.trim().length<2){$('results').innerHTML='';return}
+  deb=setTimeout(async()=>{try{const u=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v.trim())}&format=json&countrycodes=iq&limit=6&accept-language=ar,en&viewbox=38.7,37.4,48.6,29.0&bounded=1`;
+    const r=await fetch(u);const d=await r.json();renderResults(d.map(e=>({name:e.display_name,ll:[+e.lat,+e.lon]})))}catch(e){$('results').innerHTML=''}},450)}
+function pick(r){recent=[r,...recent.filter(a=>a.name!==r.name)].slice(0,6);localStorage.setItem('recent',JSON.stringify(recent));
+  $('q').value='';$('q').blur();$('results').innerHTML='';plan(r.ll)}
+
+/* ===== routing / navigation ===== */
+const nav={on:false,dest:null,opts:[],sel:0,loading:false,muted:false,next:1,remD:0,remT:0,dNext:0,near:0,spoken:new Set(),alerted:new Set(),lastRe:0};
+const route0=()=>nav.opts[nav.sel];
+function say(txt){if(nav.muted||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(txt);u.lang=ar?'ar':'en-US';u.rate=.95;speechSynthesis.speak(u)}
+function stepText(s){if(s.type==='arrive')return t('arrived');if(s.type==='depart')return t('depart');if(s.type==='roundabout'||s.type==='rotary')return t('roundabout');return D[s.modifier]?t(s.modifier):t('cont')}
+function stepIcon(s){if(s.type==='arrive')return'🏁';if(s.type==='depart')return'➤';if(s.type==='roundabout'||s.type==='rotary')return'⟳';
+  return({left:'⬅',right:'➡','slight left':'↖','slight right':'↗','sharp left':'↙','sharp right':'↘',uturn:'↩'})[s.modifier]||'⬆'}
+async function fetchRoutes(a,b){const go=async ex=>{try{const u=`${OSRM}/route/v1/driving/${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson&alternatives=true&steps=true${ex}`;
+    const r=await fetch(u);if(!r.ok)return[];const d=await r.json();if(d.code!=='Ok')return[];
+    return d.routes.slice(0,2).map(r=>{const points=r.geometry.coordinates.map(c=>[c[1],c[0]]),steps=[];
+      r.legs.forEach(l=>l.steps.forEach(s=>steps.push({type:s.maneuver.type||'',modifier:s.maneuver.modifier||'',name:s.name||'',at:[s.maneuver.location[1],s.maneuver.location[0]]})));
+      const cum=[0];for(let i=1;i<points.length;i++)cum.push(cum[i-1]+distM(points[i-1],points[i]));
+      const stepIdx=[];let from=0;steps.forEach(s=>{let best=1e9,bi=from;for(let i=from;i<points.length;i++){const dx=(points[i][1]-s.at[1])*.84,dy=points[i][0]-s.at[0],d=dx*dx+dy*dy;if(d<best){best=d;bi=i}}stepIdx.push(bi);from=bi});
+      return {points,steps,cum,stepIdx,distance:r.distance,duration:r.duration,total:Math.max(cum[cum.length-1],1)}})}catch(e){return[]}};
+  if(avoidTolls){const r=await go('&exclude=toll');if(r.length)return r}return go('')}
+async function plan(dest){if(!pos){toast(t('waiting'));return}
+  Object.assign(nav,{dest,loading:true,opts:[],sel:0,on:false});drawRoute();updateBars();
+  const o=await fetchRoutes(pos.ll,dest);nav.loading=false;
+  if(!o.length){nav.dest=null;toast(t('noRoute'));drawRoute();updateBars();return}
+  nav.opts=o;drawRoute();updateBars();map.fitBounds(L.latLngBounds(o[0].points),{paddingTopLeft:[40,150],paddingBottomRight:[40,280]})}
+function drawRoute(){lineLayer.clearLayers();if(destMk){map.removeLayer(destMk);destMk=null}
+  if(nav.dest)destMk=L.marker(nav.dest,{icon:L.divIcon({className:'',html:'<div style="font-size:42px;line-height:42px">📍</div>',iconSize:[42,42],iconAnchor:[21,40]})}).addTo(map);
+  if(!nav.on)nav.opts.forEach((o,i)=>{if(i!==nav.sel){L.polyline(o.points,{color:'#fff',weight:10}).addTo(lineLayer);L.polyline(o.points,{color:'#888',weight:6}).on('click',()=>{nav.sel=i;drawRoute();updateBars()}).addTo(lineLayer)}});
+  const r=route0();if(r){L.polyline(r.points,{color:'#fff',weight:11}).addTo(lineLayer);L.polyline(r.points,{color:'#1A73E8',weight:7}).addTo(lineLayer)}}
+function startNav(){const r=route0();if(!r||!r.steps.length)return;
+  nav.near=0;nav.spoken.clear();nav.alerted.clear();nav.next=Math.min(1,r.steps.length-1);nav.remD=r.distance;nav.remT=r.duration;nav.dNext=Math.max(0,r.cum[r.stepIdx[nav.next]]);
+  nav.on=true;drawRoute();updateBars();say(t('depart'));try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>nav.wl=w)}catch(e){}
+  if(pos)map.setView(pos.ll,17)}
+function stopNav(){nav.on=false;nav.dest=null;nav.opts=[];nav.loading=false;if(nav.wl){nav.wl.release().catch(()=>{});nav.wl=null}speechSynthesis&&speechSynthesis.cancel();
+  if(map){drawRoute()}updateBars()}
+function nearest(r,p,lo,hi){let bd=1e9,bi=lo;for(let i=lo;i<hi;i++){const d=segDistM(p,r.points[i],r.points[i+1]);if(d<bd){bd=d;bi=i}}return[bi,bd]}
+function flash(m){const e=$('alertBox');e.textContent='⚠ '+m;e.classList.remove('hide');clearTimeout(flash.h);flash.h=setTimeout(()=>e.classList.add('hide'),7000)}
+function onPosition(){if(!nav.on||!pos)return;const r=route0();if(!r||r.points.length<2)return;const p=pos.ll,last=r.points.length-1;
+  let res=nearest(r,p,Math.max(0,nav.near-10),Math.min(last,nav.near+400));if(res[1]>80)res=nearest(r,p,0,last);
+  const bi=res[0];if(res[1]>30)maybeReroute(p);nav.near=bi;
+  nav.remD=Math.max(0,r.cum[last]-r.cum[bi]);nav.remT=r.duration*Math.min(1,Math.max(0,nav.remD/r.total));
+  let ns=r.steps.length-1;for(let i=1;i<r.steps.length;i++){if(r.stepIdx[i]>bi){ns=i;break}}
+  nav.next=ns;nav.dNext=Math.max(0,r.cum[r.stepIdx[ns]]-r.cum[bi]);
+  if(nav.remD<25){say(t('arrived'));stopNav();return}
+  const st=r.steps[ns];
+  for(const th of [40,200,500]){if(nav.dNext<=th&&!nav.spoken.has(ns+':'+th)){[40,200,500].forEach(v=>{if(v>=th)nav.spoken.add(ns+':'+v)});
+    const tx=stepText(st);say(th===40||st.type==='arrive'?tx:(ar?`بعد ${th} متر، ${tx}`:`In ${th} meters, ${tx}`));break}}
+  for(const rep of reports){if(nav.alerted.has(rep.id))continue;const rp=[rep.lat,rep.lng];if(distM(p,rp)>500)continue;
+    let on=false;for(let i=bi;i<Math.min(r.points.length,bi+800);i++){if(distM(r.points[i],rp)<60){on=true;break}}
+    if(!on)continue;nav.alerted.add(rep.id);const m=ar?`تنبيه، ${t(rep.type)} أمامك`:`Caution, ${t(rep.type)} ahead`;flash(m);say(m);break}
+  updateBars()}
+async function maybeReroute(p){const now=Date.now();if(!nav.dest||now-nav.lastRe<10000)return;nav.lastRe=now;say(t('rerouting'));
+  const o=await fetchRoutes(p,nav.dest);if(!o.length||!nav.on)return;nav.near=0;nav.spoken.clear();nav.opts=o;nav.sel=0;drawRoute()}
+function updateBars(){const rc=$('routeCard'),nb=$('navBar'),bn=$('banner'),sp=$('spd'),mapOn=current==='map';
+  const showCard=mapOn&&!nav.on&&(nav.loading||nav.opts.length);
+  rc.classList.toggle('hide',!showCard);nb.classList.toggle('hide',!(mapOn&&nav.on));bn.classList.toggle('hide',!(mapOn&&nav.on));
+  $('searchWrap').classList.toggle('hide',nav.on);sp.classList.toggle('hide',!(mapOn&&nav.on));
+  const bottom=(nav.on||showCard)?'200px':'28px';['side','rep'].forEach(i=>$(i).style.bottom=bottom);sp.style.bottom='310px';
+  if(showCard){rc.innerHTML=nav.loading?'<div style="text-align:center;padding:14px">…</div>':
+    `<div class="row">${nav.opts.map((o,i)=>`<button class="chip ${i===nav.sel?'on':''}" onclick="nav.sel=${i};drawRoute();updateBars()">${fmtDur(o.duration)} · ${fmtDist(o.distance)}</button>`).join('')}<span style="flex:1"></span><button class="chip" onclick="stopNav()">✕</button></div>
+    <button class="btn" style="margin-top:10px;height:56px;font-size:20px" onclick="startNav()">${t('start')}</button>`}
+  if(mapOn&&nav.on){const r=route0(),st=r.steps[Math.min(nav.next,r.steps.length-1)];
+    $('bIcon').textContent=stepIcon(st);$('bDist').textContent=fmtDist(nav.dNext);$('bText').textContent=stepText(st)+(st.name?' • '+st.name:'');
+    const eta=new Date(Date.now()+nav.remT*1000).toLocaleTimeString(ar?'ar-IQ':'en-US',{hour:'2-digit',minute:'2-digit'});
+    nb.innerHTML=`<div class="row"><button class="fab" style="background:var(--fg);color:var(--bg)" onclick="stopNav()">✕</button><div style="flex:1;text-align:center"><div style="font-size:24px;font-weight:700">${eta}</div><div style="color:var(--mut)">${fmtDur(nav.remT)} • ${fmtDist(nav.remD)}</div></div><button class="fab" onclick="nav.muted=!nav.muted;if(nav.muted)speechSynthesis.cancel();updateBars()">${nav.muted?'🔇':'🔊'}</button></div>`}}
+
+/* ===== boot ===== */
+applyTheme();applyLang();
+(async()=>{const {data}=await sb.auth.getSession();session=data.session;
+  await new Promise(r=>setTimeout(r,1500));
+  if(session){await loadProfile();subscribeProfile();if(!prof){current='login';show('login')}}else{current='login';show('login')}})();
+</script>
+</body>
+</html>
