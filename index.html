@@ -3,6 +3,7 @@
 <head>
 <script>
 const SUPABASE_URL = 'https://yhiclkmwlwxsvqtttjcm.supabase.co';
+const REQUIRE_LOGIN = false; // false = opens directly on the map, no login (reports stay on this device)
 const SUPABASE_ANON_KEY = 'sb_publishable_jQxYpFK4_3IbRHjSdI3XSQ_qGhJvi0i';
 </script>
 <meta charset="utf-8">
@@ -214,7 +215,7 @@ function route(){if(!session){if(current!=='login'&&current!=='otp'){current='lo
   if(!prof)return;
   if(active()){if(current!=='map'&&current!=='profile'&&!(current==='paywall'&&prof._manual)){current='map';show('map')}}
   else{current='paywall';show('paywall')}}
-sb.auth.onAuthStateChange((_e,s)=>{session=s;if(s){loadProfile();subscribeProfile()}else{prof=null;current='login';stopNav();show('login')}});
+sb.auth.onAuthStateChange((_e,s)=>{if(!REQUIRE_LOGIN)return;session=s;if(s){loadProfile();subscribeProfile()}else{prof=null;current='login';stopNav();show('login')}});
 setInterval(()=>{if(prof&&!active()&&current==='map'){route()}},60000);
 let profCh=null;
 function subscribeProfile(){if(profCh)sb.removeChannel(profCh);
@@ -282,9 +283,11 @@ function onGeo(g){const c=g.coords;pos={ll:[c.latitude,c.longitude],speed:c.spee
 function locate(){if(pos)map.setView(pos.ll,16)}
 
 /* ===== reports ===== */
-async function loadReports(){const {data}=await sb.from('reports').select('*');
+const demoLoad=()=>{try{return JSON.parse(localStorage.getItem('demoReports')||'[]')}catch(e){return[]}};
+const demoSave=a=>localStorage.setItem('demoReports',JSON.stringify(a));
+async function loadReports(){if(!REQUIRE_LOGIN){reports=demoLoad().filter(r=>new Date(r.expires_at)>new Date()&&(r.denies||0)<3);drawReports();return}const {data}=await sb.from('reports').select('*');
   reports=(data||[]).filter(r=>new Date(r.expires_at)>new Date()&&(r.denies||0)<3);drawReports()}
-function supabaseReports(){sb.channel('reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},loadReports).subscribe()}
+function supabaseReports(){if(!REQUIRE_LOGIN)return;sb.channel('reports').on('postgres_changes',{event:'*',schema:'public',table:'reports'},loadReports).subscribe()}
 function drawReports(){repLayer.clearLayers();reports.forEach(r=>{
   L.marker([r.lat,r.lng],{icon:L.divIcon({className:'',html:`<div class="pin">${REPORTS[r.type]||'📍'}</div>`,iconSize:[38,38],iconAnchor:[19,19]})})
    .on('click',()=>reportDetails(r)).addTo(repLayer)})}
@@ -292,11 +295,15 @@ function sheet(html){$('sheetHost').innerHTML=`<div style="position:fixed;inset:
 function closeSheet(){$('sheetHost').innerHTML=''}
 function openReport(){sheet(`<b style="font-size:20px">${t('report')}</b><div class="grid">${Object.keys(REPORTS).map(k=>`<button onclick="sendReport('${k}')"><span>${REPORTS[k]}</span>${t(k)}</button>`).join('')}</div>`)}
 async function sendReport(type){if(!pos){toast(t('waiting'));return}closeSheet();
+  if(!REQUIRE_LOGIN){const last=+localStorage.getItem('demoLast')||0;if(Date.now()-last<60000){toast(t('wait'));return}localStorage.setItem('demoLast',Date.now());
+    const a=demoLoad();a.push({id:'d'+Date.now(),type,lat:pos.ll[0],lng:pos.ll[1],confirms:1,denies:0,expires_at:new Date(Date.now()+72e5).toISOString()});demoSave(a);toast(t('thanks'));loadReports();return}
   const {error}=await sb.rpc('create_report',{p_type:type,p_lat:pos.ll[0],p_lng:pos.ll[1]});
   toast(error?(/Rate limit/i.test(error.message)?t('wait'):t('failed')):t('thanks'));if(!error){loadReports();loadProfile()}}
 function reportDetails(r){sheet(`<div style="text-align:center"><div style="font-size:44px">${REPORTS[r.type]||'📍'}</div><b style="font-size:20px">${t(r.type)}</b></div>
   <div class="row" style="margin-top:16px"><button class="btn ghost" style="height:48px" onclick="vote('${r.id}','confirm_report')">👍 ${t('still')}</button><button class="btn ghost" style="height:48px" onclick="vote('${r.id}','deny_report')">👎 ${t('gone')}</button></div>`)}
-async function vote(id,fn){closeSheet();const {error}=await sb.rpc(fn,{p_id:id});
+async function vote(id,fn){closeSheet();
+  if(!REQUIRE_LOGIN){const v=JSON.parse(localStorage.getItem('demoVotes')||'[]');if(v.includes(id)){toast(t('already'));return}v.push(id);localStorage.setItem('demoVotes',JSON.stringify(v));
+    const a=demoLoad(),r=a.find(z=>z.id===id);if(r){if(fn==='confirm_report')r.confirms++;else r.denies++;demoSave(a)}toast(t('voted'));loadReports();return}const {error}=await sb.rpc(fn,{p_id:id});
   toast(error?(/Already/i.test(error.message)?t('already'):t('failed')):t('voted'));if(!error){loadReports();loadProfile()}}
 
 /* ===== search ===== */
@@ -373,7 +380,8 @@ function updateBars(){const rc=$('routeCard'),nb=$('navBar'),bn=$('banner'),sp=$
 
 /* ===== boot ===== */
 applyTheme();applyLang();
-(async()=>{const {data}=await sb.auth.getSession();session=data.session;
+(async()=>{if(!REQUIRE_LOGIN){document.querySelector('#side .fab:last-child').classList.add('hide');await new Promise(r=>setTimeout(r,1200));current='map';show('map');return}
+  const {data}=await sb.auth.getSession();session=data.session;
   await new Promise(r=>setTimeout(r,1500));
   if(session){await loadProfile();subscribeProfile();if(!prof){current='login';show('login')}}else{current='login';show('login')}})();
 </script>
