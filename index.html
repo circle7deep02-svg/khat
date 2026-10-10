@@ -30,6 +30,7 @@ button,input{font:inherit;color:inherit}
 .card{background:var(--card);border-radius:20px;padding:18px;margin-top:12px}
 .logo{display:block;margin:20px auto;height:140px;background:#fff;border-radius:24px;padding:10px}
 h1{font-size:26px;margin:20px 0 8px}
+.dk{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(1.1) saturate(.55)}
 #map{position:fixed;inset:0;z-index:1}
 .top{position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:10px}
 .box{background:var(--bg);border-radius:20px;box-shadow:0 3px 12px #0004;overflow:hidden}
@@ -154,7 +155,7 @@ left:['انعطف يساراً','Turn left'],right:['انعطف يميناً','T
 };
 const REPORTS = {traffic:'🚦',checkpoint:'🛡️',accident:'🚗',closed:'⛔',pothole:'⚠️',police:'👮',camera:'📷',hazard:'🚧',stopped:'🔧'};
 const LEVELS = [[0,'سائق جديد','New driver'],[50,'مستكشف','Explorer'],[150,'سائق نشيط','Active driver'],[400,'خبير الطريق','Road expert'],[1000,'قائد الطريق','Road leader'],[2500,'أسطورة خط','Khat legend']];
-let ar = true, manualDark = null, avoidTolls = false;
+let ar = true, manualDark = true, avoidTolls = false;
 const t = k => (D[k] || [k, k])[ar ? 0 : 1];
 const x = (a, e) => ar ? a : e;
 
@@ -264,7 +265,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 /* ===== map ===== */
 let map=null,tiles=null,meMk=null,destMk=null,lineLayer=null,repLayer=null,reports=[],pos=null,watchId=null,firstFix=true,rot=0;
 function setTiles(){const d=isDark();if(tiles)map.removeLayer(tiles);
-  tiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${d?'dark_all':'light_all'}/{z}/{x}/{y}{r}.png`,{subdomains:'abcd',maxZoom:18,attribution:'© OpenStreetMap © CARTO'}).addTo(map);tiles.bringToBack()}
+  tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:d?'dk':'',attribution:'© OpenStreetMap'}).addTo(map);tiles.bringToBack()}
 function initMap(){if(map)return;
   map=L.map('map',{zoomControl:false,minZoom:6,maxZoom:18,maxBounds:[[IQ.s,IQ.w],[IQ.n,IQ.e]],maxBoundsViscosity:1}).setView(BAGHDAD,11);
   lineLayer=L.layerGroup().addTo(map);repLayer=L.layerGroup().addTo(map);setTiles();
@@ -339,8 +340,8 @@ async function plan(dest){if(!pos){toast(t('waiting'));return}
   nav.opts=o;drawRoute();updateBars();map.fitBounds(L.latLngBounds(o[0].points),{paddingTopLeft:[40,150],paddingBottomRight:[40,280]})}
 function drawRoute(){lineLayer.clearLayers();if(destMk){map.removeLayer(destMk);destMk=null}
   if(nav.dest)destMk=L.marker(nav.dest,{icon:L.divIcon({className:'',html:'<div style="font-size:42px;line-height:42px">📍</div>',iconSize:[42,42],iconAnchor:[21,40]})}).addTo(map);
-  if(!nav.on)nav.opts.forEach((o,i)=>{if(i!==nav.sel){L.polyline(o.points,{color:'#fff',weight:10}).addTo(lineLayer);L.polyline(o.points,{color:'#888',weight:6}).on('click',()=>{nav.sel=i;drawRoute();updateBars()}).addTo(lineLayer)}});
-  const r=route0();if(r){L.polyline(r.points,{color:'#fff',weight:11}).addTo(lineLayer);L.polyline(r.points,{color:'#1A73E8',weight:7}).addTo(lineLayer)}}
+  if(!nav.on)nav.opts.forEach((o,i)=>{if(i!==nav.sel){L.polyline(o.points,{color:'#000',weight:10,opacity:.8}).addTo(lineLayer);L.polyline(o.points,{color:'#8e99a8',weight:6}).on('click',()=>{nav.sel=i;drawRoute();updateBars()}).addTo(lineLayer)}});
+  const r=route0();if(r){L.polyline(r.points,{color:'#000',weight:12,opacity:.85}).addTo(lineLayer);L.polyline(r.points,{color:'#2D8CFF',weight:7}).addTo(lineLayer)}}
 function startNav(){const r=route0();if(!r||!r.steps.length)return;
   nav.near=0;nav.spoken.clear();nav.alerted.clear();nav.next=Math.min(1,r.steps.length-1);nav.remD=r.distance;nav.remT=r.duration;nav.dNext=Math.max(0,r.cum[r.stepIdx[nav.next]]);
   nav.on=true;drawRoute();updateBars();say(t('depart'));try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>nav.wl=w)}catch(e){}
