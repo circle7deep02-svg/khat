@@ -11,7 +11,10 @@ const SUPABASE_ANON_KEY = 'sb_publishable_jQxYpFK4_3IbRHjSdI3XSQ_qGhJvi0i';
 <title>خط — Khat IQ</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#fff;--fg:#000;--mut:#0009;--card:#0000000f;--line:#00000026}
@@ -106,7 +109,7 @@ h1{font-size:26px;margin:20px 0 8px}
 <!-- Map -->
 <div id="map" class="hide"></div>
 <div class="top hide" id="topbar">
-  <div id="searchWrap" class="box"><input id="q" autocomplete="off" oninput="onSearch(this.value)" onfocus="showRecent()"><div id="results"></div></div>
+  <div id="searchWrap" class="box"><div class="row" style="border-bottom:1px solid var(--line)"><span style="padding-inline:14px;color:#2D8CFF">●</span><input id="qf" autocomplete="off" oninput="onSearch(this.value,'from')" onfocus="act='from';this.select()"></div><div class="row"><span style="padding-inline:14px">📍</span><input id="q" autocomplete="off" oninput="onSearch(this.value,'to')" onfocus="act='to';showRecent()"></div><div id="results"></div></div>
   <div class="banner hide" id="banner"><span id="bIcon" style="font-size:44px"></span><div><b id="bDist"></b><span id="bText" style="opacity:.75"></span></div></div>
   <div class="alert hide" id="alertBox"></div>
 </div>
@@ -129,7 +132,7 @@ const NOMINATIM_UA = ''; // browsers set their own User-Agent
 
 /* ===== i18n ===== */
 const D = {
-search:['ابحث في العراق...','Search in Iraq...'],start:['ابدأ','Start'],report:['أبلغ عن','Report'],
+search:['ابحث في العراق...','Search in Iraq...'],where:['إلى أين؟','Where to?'],myLoc:['موقعي الحالي','My location'],start:['ابدأ','Start'],report:['أبلغ عن','Report'],
 thanks:['شكراً! تم إرسال البلاغ','Thanks! Report sent'],still:['ما زال موجوداً','Still there'],gone:['لم يعد موجوداً','Not there'],
 locOff:['الموقع مغلق — فعّل إذن الموقع من إعدادات المتصفح','Location is off — enable it in browser settings'],
 noRoute:['ما لقيت مسار لهذي الوجهة','No route found'],rerouting:['جاري إعادة حساب المسار','Recalculating route'],
@@ -177,10 +180,10 @@ const iqd=n=>Math.round(n).toString().replace(/\B(?=(\d{3})+$)/g,',')+(ar?' د.�
 function isDark(){if(manualDark!==null)return manualDark;const h=new Date().getHours();return h>=18||h<6}
 function applyTheme(){const d=isDark();document.documentElement.classList.toggle('dark',d);$('darkBtn').textContent=d?'☀':'☾';if(map)setTiles()}
 function toggleDark(){manualDark=!isDark();applyTheme()}
-function toggleLang(){ar=!ar;applyLang();if(!$('profile').classList.contains('hide'))openProfile();if(!$('paywall').classList.contains('hide'))loadPlans()}
+function toggleLang(){ar=!ar;applyLang();if(map)setTiles();if(!$('profile').classList.contains('hide'))openProfile();if(!$('paywall').classList.contains('hide'))loadPlans()}
 function applyLang(){document.documentElement.lang=ar?'ar':'en';document.documentElement.dir=ar?'rtl':'ltr';
   document.querySelectorAll('[data-t]').forEach(e=>e.textContent=t(e.dataset.t));
-  $('q').placeholder=t('search');$('langL').textContent=ar?'English':'العربية';
+  $('q').placeholder=t('where');if(!nav.from)$('qf').value=t('myLoc');$('langL').textContent=ar?'English':'العربية';
   $('otpPhone').parentElement.style.direction=ar?'rtl':'ltr'}
 setInterval(applyTheme,60000);
 
@@ -264,8 +267,30 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 
 /* ===== map ===== */
 let map=null,tiles=null,meMk=null,destMk=null,lineLayer=null,repLayer=null,reports=[],pos=null,watchId=null,firstFix=true,rot=0;
-function setTiles(){const d=isDark();if(tiles)map.removeLayer(tiles);
-  tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:d?'dk':'',attribution:'© OpenStreetMap'}).addTo(map);tiles.bringToBack()}
+function mapStyle(d){
+  const c=d?{bg:'#0a0b0e',park:'#0e1712',water:'#101c28',r1:'#707786',r2:'#4a505e',r3:'#2c3039',txt:'#9aa1ad',halo:'#0a0b0e'}
+           :{bg:'#f4f4f2',park:'#e4ece1',water:'#d0e1ee',r1:'#b4bac3',r2:'#cfd3d9',r3:'#e1e3e7',txt:'#6b7280',halo:'#ffffff'};
+  const w=(a,b)=>['interpolate',['exponential',1.5],['zoom'],8,a,18,b];
+  const nm=ar?['coalesce',['get','name:ar'],['get','name']]:['coalesce',['get','name_en'],['get','name:latin'],['get','name']];
+  const road=(id,cls,col,a,b,mz)=>({id,type:'line',source:'o','source-layer':'transportation',minzoom:mz,filter:['all',['match',['get','class'],cls,true,false],['!=',['get','brunnel'],'tunnel']],layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':col,'line-width':w(a,b)}});
+  const lab={'text-color':c.txt,'text-halo-color':c.halo,'text-halo-width':1.3};
+  return {version:8,glyphs:'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sources:{o:{type:'vector',url:'https://tiles.openfreemap.org/planet'}},
+    layers:[
+      {id:'bg',type:'background',paint:{'background-color':c.bg}},
+      {id:'park',type:'fill',source:'o','source-layer':'landcover',filter:['match',['get','class'],['wood','grass'],true,false],paint:{'fill-color':c.park}},
+      {id:'water',type:'fill',source:'o','source-layer':'water',paint:{'fill-color':c.water}},
+      road('r3',['minor','service','track','path'],c.r3,.3,7,12),
+      road('r2',['tertiary','secondary'],c.r2,.5,9,9),
+      road('r1',['primary','trunk','motorway'],c.r1,.8,11,5),
+      {id:'place',type:'symbol',source:'o','source-layer':'place',filter:['match',['get','class'],['city','town','village','suburb','neighbourhood'],true,false],layout:{'text-field':nm,'text-font':['Noto Sans Regular'],'text-size':['match',['get','class'],'city',17,'town',14,12],'text-max-width':8},paint:lab},
+      {id:'rname',type:'symbol',source:'o','source-layer':'transportation_name',minzoom:14,layout:{'symbol-placement':'line','text-field':nm,'text-font':['Noto Sans Regular'],'text-size':11},paint:lab}
+    ]}}
+function setTiles(){const d=isDark();if(tiles)map.removeLayer(tiles);tiles=null;
+  try{if(window.maplibregl&&L.maplibreGL){try{maplibregl.setRTLTextPlugin('https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/mapbox-gl-rtl-text.js',true)}catch(e){}
+    tiles=L.maplibreGL({style:mapStyle(d),attribution:'© OpenStreetMap © OpenMapTiles'}).addTo(map)}}catch(e){tiles=null}
+  if(!tiles)tiles=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:d?'dk':'',attribution:'© OpenStreetMap'}).addTo(map);
+  if(tiles.bringToBack)tiles.bringToBack()}
 function initMap(){if(map)return;
   map=L.map('map',{zoomControl:false,minZoom:6,maxZoom:18,maxBounds:[[IQ.s,IQ.w],[IQ.n,IQ.e]],maxBoundsViscosity:1}).setView(BAGHDAD,11);
   lineLayer=L.layerGroup().addTo(map);repLayer=L.layerGroup().addTo(map);setTiles();
@@ -312,14 +337,17 @@ let deb=null,recent=JSON.parse(localStorage.getItem('recent')||'[]');
 function showRecent(){if(!$('q').value&&recent.length)renderResults(recent,true)}
 function renderResults(items){$('results').innerHTML=items.map((r,i)=>`<div class="li" data-i="${i}">📍 ${esc(r.name)}</div>`).join('');
   $('results').querySelectorAll('.li').forEach(e=>e.onclick=()=>pick(items[e.dataset.i]))}
-function onSearch(v){clearTimeout(deb);if(v.trim().length<2){$('results').innerHTML='';return}
+let act='to';
+function onSearch(v,w){act=w||'to';clearTimeout(deb);if(v.trim().length<2){$('results').innerHTML='';return}
   deb=setTimeout(async()=>{try{const u=`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v.trim())}&format=json&countrycodes=iq&limit=6&accept-language=ar,en&viewbox=38.7,37.4,48.6,29.0&bounded=1`;
     const r=await fetch(u);const d=await r.json();renderResults(d.map(e=>({name:e.display_name,ll:[+e.lat,+e.lon]})))}catch(e){$('results').innerHTML=''}},450)}
 function pick(r){recent=[r,...recent.filter(a=>a.name!==r.name)].slice(0,6);localStorage.setItem('recent',JSON.stringify(recent));
-  $('q').value='';$('q').blur();$('results').innerHTML='';plan(r.ll)}
+  const short=r.name.split(',')[0];$('results').innerHTML='';document.activeElement.blur();
+  if(act==='from'){nav.from=r.ll;$('qf').value=short;if(nav.dest)plan(nav.dest);else $('q').focus()}
+  else{$('q').value=short;plan(r.ll)}}
 
 /* ===== routing / navigation ===== */
-const nav={on:false,dest:null,opts:[],sel:0,loading:false,muted:false,next:1,remD:0,remT:0,dNext:0,near:0,spoken:new Set(),alerted:new Set(),lastRe:0};
+const nav={from:null,on:false,dest:null,opts:[],sel:0,loading:false,muted:false,next:1,remD:0,remT:0,dNext:0,near:0,spoken:new Set(),alerted:new Set(),lastRe:0};
 const route0=()=>nav.opts[nav.sel];
 function say(txt){if(nav.muted||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(txt);u.lang=ar?'ar':'en-US';u.rate=.95;speechSynthesis.speak(u)}
 function stepText(s){if(s.type==='arrive')return t('arrived');if(s.type==='depart')return t('depart');if(s.type==='roundabout'||s.type==='rotary')return t('roundabout');return D[s.modifier]?t(s.modifier):t('cont')}
@@ -333,20 +361,20 @@ async function fetchRoutes(a,b){const go=async ex=>{try{const u=`${OSRM}/route/v
       const stepIdx=[];let from=0;steps.forEach(s=>{let best=1e9,bi=from;for(let i=from;i<points.length;i++){const dx=(points[i][1]-s.at[1])*.84,dy=points[i][0]-s.at[0],d=dx*dx+dy*dy;if(d<best){best=d;bi=i}}stepIdx.push(bi);from=bi});
       return {points,steps,cum,stepIdx,distance:r.distance,duration:r.duration,total:Math.max(cum[cum.length-1],1)}})}catch(e){return[]}};
   if(avoidTolls){const r=await go('&exclude=toll');if(r.length)return r}return go('')}
-async function plan(dest){if(!pos){toast(t('waiting'));return}
+async function plan(dest){if(!pos&&!nav.from){toast(t('waiting'));return}
   Object.assign(nav,{dest,loading:true,opts:[],sel:0,on:false});drawRoute();updateBars();
-  const o=await fetchRoutes(pos.ll,dest);nav.loading=false;
+  const o=await fetchRoutes(nav.from||pos.ll,dest);nav.loading=false;
   if(!o.length){nav.dest=null;toast(t('noRoute'));drawRoute();updateBars();return}
   nav.opts=o;drawRoute();updateBars();map.fitBounds(L.latLngBounds(o[0].points),{paddingTopLeft:[40,150],paddingBottomRight:[40,280]})}
 function drawRoute(){lineLayer.clearLayers();if(destMk){map.removeLayer(destMk);destMk=null}
   if(nav.dest)destMk=L.marker(nav.dest,{icon:L.divIcon({className:'',html:'<div style="font-size:42px;line-height:42px">📍</div>',iconSize:[42,42],iconAnchor:[21,40]})}).addTo(map);
   if(!nav.on)nav.opts.forEach((o,i)=>{if(i!==nav.sel){L.polyline(o.points,{color:'#000',weight:10,opacity:.8}).addTo(lineLayer);L.polyline(o.points,{color:'#8e99a8',weight:6}).on('click',()=>{nav.sel=i;drawRoute();updateBars()}).addTo(lineLayer)}});
-  const r=route0();if(r){L.polyline(r.points,{color:'#000',weight:12,opacity:.85}).addTo(lineLayer);L.polyline(r.points,{color:'#2D8CFF',weight:7}).addTo(lineLayer)}}
-function startNav(){const r=route0();if(!r||!r.steps.length)return;
+  const r=route0();if(r){L.polyline(r.points,{color:'#000',weight:13,opacity:.9}).addTo(lineLayer);L.polyline(r.points,{color:'#2D8CFF',weight:8}).addTo(lineLayer)}}
+async function startNav(){if(nav.from){if(!pos){toast(t('waiting'));return}const o2=await fetchRoutes(pos.ll,nav.dest);if(!o2.length){toast(t('noRoute'));return}nav.from=null;$('qf').value=t('myLoc');nav.opts=o2;nav.sel=0}const r=route0();if(!r||!r.steps.length)return;
   nav.near=0;nav.spoken.clear();nav.alerted.clear();nav.next=Math.min(1,r.steps.length-1);nav.remD=r.distance;nav.remT=r.duration;nav.dNext=Math.max(0,r.cum[r.stepIdx[nav.next]]);
   nav.on=true;drawRoute();updateBars();say(t('depart'));try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>nav.wl=w)}catch(e){}
   if(pos)map.setView(pos.ll,17)}
-function stopNav(){nav.on=false;nav.dest=null;nav.opts=[];nav.loading=false;if(nav.wl){nav.wl.release().catch(()=>{});nav.wl=null}speechSynthesis&&speechSynthesis.cancel();
+function stopNav(){nav.from=null;if($('qf'))$('qf').value=t('myLoc');$('q').value='';nav.on=false;nav.dest=null;nav.opts=[];nav.loading=false;if(nav.wl){nav.wl.release().catch(()=>{});nav.wl=null}speechSynthesis&&speechSynthesis.cancel();
   if(map){drawRoute()}updateBars()}
 function nearest(r,p,lo,hi){let bd=1e9,bi=lo;for(let i=lo;i<hi;i++){const d=segDistM(p,r.points[i],r.points[i+1]);if(d<bd){bd=d;bi=i}}return[bi,bd]}
 function flash(m){const e=$('alertBox');e.textContent='⚠ '+m;e.classList.remove('hide');clearTimeout(flash.h);flash.h=setTimeout(()=>e.classList.add('hide'),7000)}
