@@ -106,6 +106,15 @@ h1{font-size:26px;margin:20px 0 8px}
 <!-- Profile -->
 <div class="scr hide" id="profile"></div>
 
+<!-- Location permission intro -->
+<div class="scr hide" id="perm" style="display:flex;flex-direction:column;justify-content:center;text-align:center;gap:14px">
+  <div style="font-size:72px">📍</div>
+  <h1 data-t="permTitle"></h1>
+  <p data-t="permText" style="color:var(--mut)"></p>
+  <button class="btn" onclick="allowGeo()" data-t="permBtn"></button>
+  <button class="btn ghost" onclick="$('perm').classList.add('hide')" data-t="permSkip"></button>
+</div>
+
 <!-- Map -->
 <div id="map" class="hide"></div>
 <div class="top hide" id="topbar">
@@ -132,7 +141,7 @@ const NOMINATIM_UA = ''; // browsers set their own User-Agent
 
 /* ===== i18n ===== */
 const D = {
-search:['ابحث في العراق...','Search in Iraq...'],where:['إلى أين؟','Where to?'],myLoc:['موقعي الحالي','My location'],start:['ابدأ','Start'],report:['أبلغ عن','Report'],
+search:['ابحث في العراق...','Search in Iraq...'],where:['إلى أين؟','Where to?'],permTitle:['فعّل الموقع','Turn on location'],permText:['حتى نعرف وين انت ونرسم المسار ونوجّهك، اضغط الزر وبعدين اختر «سماح» من الشاشة اللي تطلع.','So we can find you, draw the route and guide you, tap the button and choose “Allow” on the next prompt.'],permBtn:['تفعيل الموقع','Enable location'],permSkip:['لاحقاً','Later'],myLoc:['موقعي الحالي','My location'],start:['ابدأ','Start'],report:['أبلغ عن','Report'],
 thanks:['شكراً! تم إرسال البلاغ','Thanks! Report sent'],still:['ما زال موجوداً','Still there'],gone:['لم يعد موجوداً','Not there'],
 locOff:['الموقع مغلق — فعّل إذن الموقع من إعدادات المتصفح','Location is off — enable it in browser settings'],
 noRoute:['ما لقيت مسار لهذي الوجهة','No route found'],rerouting:['جاري إعادة حساب المسار','Recalculating route'],
@@ -191,7 +200,7 @@ setInterval(applyTheme,60000);
 const SCREENS=['splash','login','otp','paywall','profile'];
 function show(name){SCREENS.forEach(s=>$(s).classList.toggle('hide',s!==name));
   const m=name==='map';['map','topbar','side','rep'].forEach(i=>$(i).classList.toggle('hide',!m));
-  if(m){initMap();setTimeout(()=>map.invalidateSize(),50);startGeo()}else if(name!=='profile'&&name!=='paywall'){stopGeo()}
+  if(m){initMap();setTimeout(()=>map.invalidateSize(),50);askGeo()}else if(name!=='profile'&&name!=='paywall'){stopGeo()}
   if(name==='paywall')loadPlans();updateBars()}
 
 /* ===== supabase auth / profile ===== */
@@ -298,6 +307,11 @@ function initMap(){if(map)return;
   map.getContainer().addEventListener('touchstart',e=>{clearTimeout(lp);if(e.touches.length===1){const tt=e.touches[0];lp=setTimeout(()=>{const ll=map.mouseEventToLatLng(tt);plan([ll.lat,ll.lng])},700)}},{passive:true});
   ['touchend','touchmove'].forEach(ev=>map.getContainer().addEventListener(ev,()=>clearTimeout(lp),{passive:true}));
   loadReports();supabaseReports()}
+let askedGeo=false;
+async function askGeo(){if(askedGeo){startGeo();return}askedGeo=true;
+  try{const p=await navigator.permissions.query({name:'geolocation'});if(p.state==='granted'){startGeo();return}}catch(e){}
+  $('perm').classList.remove('hide')}
+function allowGeo(){$('perm').classList.add('hide');startGeo()}
 function startGeo(){if(watchId!==null||!navigator.geolocation)return;
   watchId=navigator.geolocation.watchPosition(onGeo,()=>toast(t('locOff')),{enableHighAccuracy:true,maximumAge:2000})}
 function stopGeo(){if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}}
